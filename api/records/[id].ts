@@ -1,9 +1,23 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import admin from "firebase-admin";
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-  : null;
+const getServiceAccount = () => {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    const decoded = Buffer.from(
+      process.env.FIREBASE_SERVICE_ACCOUNT_BASE64,
+      "base64",
+    ).toString("utf8");
+    return JSON.parse(decoded);
+  }
+
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+  }
+
+  return null;
+};
+
+const serviceAccount = getServiceAccount();
 
 if (!admin.apps.length && serviceAccount) {
   admin.initializeApp({

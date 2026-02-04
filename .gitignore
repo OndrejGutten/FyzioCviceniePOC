@@ -32,6 +32,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+fyziocviceniepoc-firebase-adminsdk-fbsvc-752f9ff11b.json
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +42,4 @@ app-example
 # generated native folders
 /ios
 /android
+
