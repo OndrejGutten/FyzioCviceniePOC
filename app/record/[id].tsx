@@ -14,6 +14,12 @@ const formatLocal = (timestamp: string) => {
   return date.toLocaleString();
 };
 
+const formatSummary = (record: { aches: 'Back' | 'Leg' | 'Arm'; minutes: number; change: 'Improved!' | 'Got worse!' | 'No change!' }) => {
+  const acheMap = { Back: 'B', Leg: 'L', Arm: 'A' } as const;
+  const changeMap = { 'Improved!': '+', 'Got worse!': '-', 'No change!': '0' } as const;
+  return `${acheMap[record.aches]}/${record.minutes}/${changeMap[record.change]}`;
+};
+
 export default function RecordDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getRecordById } = useRecords();
@@ -69,23 +75,35 @@ export default function RecordDetailScreen() {
         </ThemedText>
       ) : (
         <ThemedView style={styles.card}>
-          <ThemedText type="defaultSemiBold">Timestamp</ThemedText>
-          <ThemedText>{formatLocal(record.timestamp)}</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.recordText}>
+            Timestamp
+          </ThemedText>
+          <ThemedText style={styles.recordText}>{formatLocal(record.timestamp)}</ThemedText>
 
-          <ThemedText type="defaultSemiBold" style={styles.labelSpacing}>
+          <ThemedText type="defaultSemiBold" style={[styles.labelSpacing, styles.recordText]}>
+            Summary
+          </ThemedText>
+          <ThemedText style={styles.recordText}>{formatSummary(record)}</ThemedText>
+
+          <ThemedText type="defaultSemiBold" style={[styles.labelSpacing, styles.recordText]}>
+            Submitted by
+          </ThemedText>
+          <ThemedText style={styles.recordText}>{record.userId}</ThemedText>
+
+          <ThemedText type="defaultSemiBold" style={[styles.labelSpacing, styles.recordText]}>
             Q1: What aches you?
           </ThemedText>
-          <ThemedText>{record.aches}</ThemedText>
+          <ThemedText style={styles.recordText}>{record.aches}</ThemedText>
 
-          <ThemedText type="defaultSemiBold" style={styles.labelSpacing}>
+          <ThemedText type="defaultSemiBold" style={[styles.labelSpacing, styles.recordText]}>
             Q2: How long have you stretched?
           </ThemedText>
-          <ThemedText>{record.minutes} minutes</ThemedText>
+          <ThemedText style={styles.recordText}>{record.minutes} minutes</ThemedText>
 
-          <ThemedText type="defaultSemiBold" style={styles.labelSpacing}>
+          <ThemedText type="defaultSemiBold" style={[styles.labelSpacing, styles.recordText]}>
             Q3: Have you observed a change?
           </ThemedText>
-          <ThemedText>{record.change}</ThemedText>
+          <ThemedText style={styles.recordText}>{record.change}</ThemedText>
         </ThemedView>
       )}
     </ScrollView>
@@ -106,6 +124,9 @@ const styles = StyleSheet.create({
   },
   labelSpacing: {
     marginTop: 12,
+  },
+  recordText: {
+    color: '#000000',
   },
   emptyText: {
     marginTop: 20,

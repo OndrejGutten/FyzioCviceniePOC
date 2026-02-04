@@ -16,6 +16,8 @@ type RecordsContextValue = {
   addRecord: (record: Omit<StretchRecord, 'id' | 'timestamp' | 'userId'>) => Promise<void>;
   getRecordById: (id: string) => StretchRecord | undefined;
   isLoading: boolean;
+  isPurging: boolean;
+  purgeRecords: (userId?: string) => Promise<void>;
   role: Role;
   userId: string;
   setRole: (role: Role) => void;
@@ -33,6 +35,7 @@ const sortNewestFirst = (items: StretchRecord[]) =>
 export function RecordsProvider({ children }: { children: React.ReactNode }) {
   const [records, setRecords] = useState<StretchRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPurging, setIsPurging] = useState(false);
   const [role, setRole] = useState<Role>('user');
   const [userId, setUserId] = useState('user-1');
 
@@ -85,19 +88,43 @@ export function RecordsProvider({ children }: { children: React.ReactNode }) {
     [records],
   );
 
+  const purgeRecords = useCallback(
+    async (targetUserId?: string) => {
+      if (!API_BASE_URL) {
+        return;
+      }
+      setIsPurging(true);
+      try {
+        const query = targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : '';
+        const response = await fetch(`${API_BASE_URL}/records${query}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          throw new Error('Failed to purge records');
+        }
+        await refresh();
+      } finally {
+        setIsPurging(false);
+      }
+    },
+    [refresh],
+  );
+
   const value = useMemo(
     () => ({
       records,
       addRecord,
       getRecordById,
       isLoading,
+      isPurging,
+      purgeRecords,
       role,
       userId,
       setRole,
       setUserId,
       refresh,
     }),
-    [records, addRecord, getRecordById, isLoading, role, userId, refresh],
+    [records, addRecord, getRecordById, isLoading, isPurging, purgeRecords, role, userId, refresh],
   );
 
   return <RecordsContext.Provider value={value}>{children}</RecordsContext.Provider>;

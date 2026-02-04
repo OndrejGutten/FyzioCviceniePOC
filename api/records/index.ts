@@ -36,6 +36,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return sendError(res, 500, "Firestore not configured");
   }
 
+  if (req.method === "DELETE") {
+    const { userId } = req.query;
+    if (Array.isArray(userId)) {
+      return sendError(res, 400, "userId must be a string");
+    }
+
+    const baseQuery = userId
+      ? db.collection("records").where("userId", "==", userId)
+      : db.collection("records");
+
+    let deletedCount = 0;
+    while (true) {
+      const snapshot = await baseQuery.limit(500).get();
+      if (snapshot.empty) {
+        break;
+      }
+
+      const batch = db.batch();
+      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+      deletedCount += snapshot.size;
+    }
+
+    return res
+      .status(200)
+      .json({ deleted: deletedCount, userId: userId ?? null });
+  }
+
   if (req.method === "POST") {
     const { aches, minutes, change, userId } = req.body ?? {};
     if (!aches || !minutes || !change || !userId) {
@@ -83,6 +111,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ records });
   }
 
-  res.setHeader("Allow", ["GET", "POST"]);
+  res.setHeader("Allow", ["GET", "POST", "DELETE"]);
   return res.status(405).end("Method Not Allowed");
 }

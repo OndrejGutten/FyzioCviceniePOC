@@ -15,6 +15,12 @@ const formatLocal = (timestamp: string) => {
   return date.toLocaleString();
 };
 
+const formatSummary = (record: { aches: 'Back' | 'Leg' | 'Arm'; minutes: number; change: 'Improved!' | 'Got worse!' | 'No change!' }) => {
+  const acheMap = { Back: 'B', Leg: 'L', Arm: 'A' } as const;
+  const changeMap = { 'Improved!': '+', 'Got worse!': '-', 'No change!': '0' } as const;
+  return `${acheMap[record.aches]}/${record.minutes}/${changeMap[record.change]}`;
+};
+
 export default function RecordsScreen() {
   const { records, isLoading, role, setRole, userId, setUserId, refresh } = useRecords();
   const router = useRouter();
@@ -55,8 +61,16 @@ export default function RecordsScreen() {
         <Pressable
           onPress={() => router.push(`/record/${item.id}` as const)}
           style={styles.row}>
-          <View>
-            <ThemedText type="defaultSemiBold">{formatLocal(item.timestamp)}</ThemedText>
+          <View style={styles.rowContent}>
+            <View style={styles.rowTextBlock}>
+              <ThemedText type="defaultSemiBold" style={styles.recordText}>
+                {formatLocal(item.timestamp)}
+              </ThemedText>
+              <ThemedText style={styles.recordText}>{formatSummary(item)}</ThemedText>
+            </View>
+            {role === 'admin' ? (
+              <ThemedText style={styles.recordText}>User: {item.userId}</ThemedText>
+            ) : null}
           </View>
         </Pressable>
       )}
@@ -79,6 +93,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#d6d6d6',
     backgroundColor: '#ffffff',
+  },
+  rowContent: {
+    gap: 8,
+  },
+  rowTextBlock: {
+    gap: 4,
+  },
+  recordText: {
+    color: '#000000',
   },
   emptyText: {
     textAlign: 'center',

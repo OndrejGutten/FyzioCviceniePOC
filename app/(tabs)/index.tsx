@@ -10,17 +10,23 @@ const ACHES_OPTIONS = ['Back', 'Leg', 'Arm'] as const;
 const CHANGE_OPTIONS = ['Improved!', 'Got worse!', 'No change!'] as const;
 
 export default function HomeScreen() {
-  const { addRecord, role, setRole, userId, setUserId } = useRecords();
+  const { addRecord, role, setRole, userId, setUserId, records, purgeRecords, isPurging } = useRecords();
   const [aches, setAches] = useState<(typeof ACHES_OPTIONS)[number] | null>(null);
   const [minutes, setMinutes] = useState('');
   const [change, setChange] = useState<(typeof CHANGE_OPTIONS)[number] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [purgeUserId, setPurgeUserId] = useState<string>('');
 
   const minutesValue = useMemo(() => {
     const parsed = Number(minutes);
     return Number.isFinite(parsed) ? parsed : NaN;
   }, [minutes]);
+
+  const availableUserIds = useMemo(() => {
+    const ids = Array.from(new Set(records.map((record) => record.userId))).sort();
+    return ids;
+  }, [records]);
 
   const handleSave = async () => {
     if (role === 'admin') {
@@ -47,6 +53,20 @@ export default function HomeScreen() {
     }
   };
 
+  const handlePurge = async () => {
+    if (role !== 'admin') {
+      return;
+    }
+    setError(null);
+    const targetUserId = purgeUserId.trim();
+    try {
+      await purgeRecords(targetUserId.length > 0 ? targetUserId : undefined);
+      setPurgeUserId('');
+    } catch {
+      setError('Failed to purge records.');
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <ThemedView style={styles.header}>
@@ -61,56 +81,100 @@ export default function HomeScreen() {
         onUserIdChange={setUserId}
       />
 
-      <ThemedView style={styles.card}>
-        <ThemedText type="subtitle">Q1: What aches you?</ThemedText>
-        <View style={styles.choiceRow}>
-          {ACHES_OPTIONS.map((option) => {
-            const isSelected = aches === option;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => setAches(option)}
-                style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}>
-                <ThemedText style={isSelected && styles.choiceTextSelected}>{option}</ThemedText>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ThemedView>
+      {role === 'admin' ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Admin tools</ThemedText>
+          <ThemedText type="default">
+            Pick a user with existing records to purge. Leave blank to purge all records.
+          </ThemedText>
+          <View style={styles.pillRow}>
+            {availableUserIds.length === 0 ? (
+              <ThemedText style={styles.helperText}>No users with records yet.</ThemedText>
+            ) : (
+              availableUserIds.map((id) => {
+                const isSelected = purgeUserId === id;
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => setPurgeUserId(id)}
+                    style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}>
+                    <ThemedText style={isSelected && styles.choiceTextSelected}>{id}</ThemedText>
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+          <TextInput
+            value={purgeUserId}
+            onChangeText={setPurgeUserId}
+            placeholder="Optional userId"
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Pressable
+            onPress={handlePurge}
+            disabled={isPurging}
+            style={[styles.purgeButton, isPurging && styles.saveButtonDisabled]}>
+            <ThemedText type="defaultSemiBold" style={styles.saveButtonText}>
+              {isPurging ? 'Purging...' : 'Purge records'}
+            </ThemedText>
+          </Pressable>
+        </ThemedView>
+      ) : (
+        <>
+          <ThemedView style={styles.card}>
+            <ThemedText type="subtitle">Q1: What aches you?</ThemedText>
+            <View style={styles.choiceRow}>
+              {ACHES_OPTIONS.map((option) => {
+                const isSelected = aches === option;
+                return (
+                  <Pressable
+                    key={option}
+                    onPress={() => setAches(option)}
+                    style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}>
+                    <ThemedText style={isSelected && styles.choiceTextSelected}>{option}</ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ThemedView>
 
-      <ThemedView style={styles.card}>
-        <ThemedText type="subtitle">Q2: How long have you stretched?</ThemedText>
-        <ThemedText type="default">Answer: a number in minutes</ThemedText>
-        <TextInput
-          value={minutes}
-          onChangeText={setMinutes}
-          keyboardType="number-pad"
-          placeholder="Minutes"
-          style={styles.input}
-        />
-      </ThemedView>
+          <ThemedView style={styles.card}>
+            <ThemedText type="subtitle">Q2: How long have you stretched?</ThemedText>
+            <ThemedText type="default">Answer: a number in minutes</ThemedText>
+            <TextInput
+              value={minutes}
+              onChangeText={setMinutes}
+              keyboardType="number-pad"
+              placeholder="Minutes"
+              style={styles.input}
+            />
+          </ThemedView>
 
-      <ThemedView style={styles.card}>
-        <ThemedText type="subtitle">Q3: Have you observed a change?</ThemedText>
-        <View style={styles.choiceRow}>
-          {CHANGE_OPTIONS.map((option) => {
-            const isSelected = change === option;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => setChange(option)}
-                style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}>
-                <ThemedText style={isSelected && styles.choiceTextSelected}>{option}</ThemedText>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ThemedView>
+          <ThemedView style={styles.card}>
+            <ThemedText type="subtitle">Q3: Have you observed a change?</ThemedText>
+            <View style={styles.choiceRow}>
+              {CHANGE_OPTIONS.map((option) => {
+                const isSelected = change === option;
+                return (
+                  <Pressable
+                    key={option}
+                    onPress={() => setChange(option)}
+                    style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}>
+                    <ThemedText style={isSelected && styles.choiceTextSelected}>{option}</ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ThemedView>
+        </>
+      )}
 
       {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
 
       {role === 'admin' ? (
-        <ThemedText style={styles.adminNote}>Admin mode is read-only. Switch to User to save.</ThemedText>
+        <ThemedText style={styles.adminNote}>Admin tools are enabled while in admin mode.</ThemedText>
       ) : (
         <Pressable
           onPress={handleSave}
@@ -141,6 +205,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   choiceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  pillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
@@ -177,6 +246,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
+  purgeButton: {
+    backgroundColor: '#b91c1c',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
   saveButtonDisabled: {
     opacity: 0.6,
   },
@@ -186,5 +261,8 @@ const styles = StyleSheet.create({
   adminNote: {
     color: '#6b7280',
     textAlign: 'center',
+  },
+  helperText: {
+    color: '#6b7280',
   },
 });
