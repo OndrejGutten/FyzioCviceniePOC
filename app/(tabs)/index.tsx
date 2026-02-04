@@ -1,98 +1,190 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { useRecords } from '@/app/context/records';
+import { RoleControls } from '@/components/role-controls';
+
+const ACHES_OPTIONS = ['Back', 'Leg', 'Arm'] as const;
+const CHANGE_OPTIONS = ['Improved!', 'Got worse!', 'No change!'] as const;
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { addRecord, role, setRole, userId, setUserId } = useRecords();
+  const [aches, setAches] = useState<(typeof ACHES_OPTIONS)[number] | null>(null);
+  const [minutes, setMinutes] = useState('');
+  const [change, setChange] = useState<(typeof CHANGE_OPTIONS)[number] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
+  const minutesValue = useMemo(() => {
+    const parsed = Number(minutes);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }, [minutes]);
+
+  const handleSave = async () => {
+    if (role === 'admin') {
+      setError('Admin mode is read-only. Switch to User to save.');
+      return;
+    }
+    if (!aches || !change) {
+      setError('Please answer all questions.');
+      return;
+    }
+    if (!Number.isFinite(minutesValue) || minutesValue <= 0) {
+      setError('Enter a valid number of minutes.');
+      return;
+    }
+    setError(null);
+    setIsSaving(true);
+    try {
+      await addRecord({ aches, minutes: minutesValue, change });
+      setAches(null);
+      setMinutes('');
+      setChange(null);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <ThemedView style={styles.header}>
+        <ThemedText type="title">Stretch Check-In</ThemedText>
+        <ThemedText type="subtitle">Answer the questions and tap Save.</ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
+
+      <RoleControls
+        role={role}
+        userId={userId}
+        onRoleChange={setRole}
+        onUserIdChange={setUserId}
+      />
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Q1: What aches you?</ThemedText>
+        <View style={styles.choiceRow}>
+          {ACHES_OPTIONS.map((option) => {
+            const isSelected = aches === option;
+            return (
+              <Pressable
+                key={option}
+                onPress={() => setAches(option)}
+                style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}>
+                <ThemedText style={isSelected && styles.choiceTextSelected}>{option}</ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
       </ThemedView>
-    </ParallaxScrollView>
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Q2: How long have you stretched?</ThemedText>
+        <ThemedText type="default">Answer: a number in minutes</ThemedText>
+        <TextInput
+          value={minutes}
+          onChangeText={setMinutes}
+          keyboardType="number-pad"
+          placeholder="Minutes"
+          style={styles.input}
+        />
+      </ThemedView>
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Q3: Have you observed a change?</ThemedText>
+        <View style={styles.choiceRow}>
+          {CHANGE_OPTIONS.map((option) => {
+            const isSelected = change === option;
+            return (
+              <Pressable
+                key={option}
+                onPress={() => setChange(option)}
+                style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}>
+                <ThemedText style={isSelected && styles.choiceTextSelected}>{option}</ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ThemedView>
+
+      {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+
+      {role === 'admin' ? (
+        <ThemedText style={styles.adminNote}>Admin mode is read-only. Switch to User to save.</ThemedText>
+      ) : (
+        <Pressable
+          onPress={handleSave}
+          disabled={isSaving}
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}>
+          <ThemedText type="defaultSemiBold" style={styles.saveButtonText}>
+            {isSaving ? 'Saving...' : 'Save'}
+          </ThemedText>
+        </Pressable>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    padding: 20,
+    gap: 16,
+  },
+  header: {
+    gap: 6,
+  },
+  card: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#d6d6d6',
+    gap: 10,
+  },
+  choiceRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  choiceButton: {
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#bdbdbd',
+  },
+  choiceButtonSelected: {
+    backgroundColor: '#1f7ae0',
+    borderColor: '#1f7ae0',
+  },
+  choiceTextSelected: {
+    color: '#ffffff',
+  },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#bdbdbd',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: '#ffffff',
+  },
+  errorText: {
+    color: '#c62828',
+  },
+  saveButton: {
+    backgroundColor: '#111827',
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  saveButtonText: {
+    color: '#ffffff',
+  },
+  adminNote: {
+    color: '#6b7280',
+    textAlign: 'center',
   },
 });
